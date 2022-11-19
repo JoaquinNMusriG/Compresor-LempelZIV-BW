@@ -1,6 +1,5 @@
 import os
 from tkinter import filedialog
-import binascii
 from operator import itemgetter #BW
 
 def BW(s):
@@ -14,8 +13,9 @@ def match(i, string):
     long_coincidence = 1
     pos_coincidence = string[i-16:i].find(string[i])
     if pos_coincidence == -1:
-        bin_no_coincidence = bin(ord(string[i])).removeprefix('0b')
-        byte_to_store = int("1"+ "0"*(7-len(bin_no_coincidence)) + bin_no_coincidence,2)
+        bin_no_coincidence = bin(ord(string[i])).removeprefix('0b') #Genera el problema de que para asciis mayores a 128, si quiero agregar un un bit flag, me extiende el byte a 9 bits, lo que provoca quue no pueda ser soportado x el bytearray que usa bytes de 8 bits.
+        if len(bin_no_coincidence) < 8:
+            byte_to_store = int("1"+ "0"*(7-len(bin_no_coincidence)) + bin_no_coincidence,2)
     else:
         window = string[i-16:i]
         while window.find(string[i:i+long_coincidence]) != -1:         
@@ -44,16 +44,16 @@ def LempelZiv(string):
     window = string[0:window_size]
     final_string = bytearray(window_size)
     for i, ch in enumerate(window):
-        final_string[i] = int(bin(ord(ch)).removeprefix('0b'),2)
+        aux = bin(ord(ch)).removeprefix('0b')
+        final_string[i] = int("0"*(8-len(aux)) + aux,2)
 
     i += 1
     while i < len(string):
         long_coincidence, byte_to_store = match(i, string)
-        final_string.append(byte_to_store)
+        final_string.append(byte_to_store)                 #ValueError: byte must be in range(0, 256)
         i += long_coincidence
     
-    compress = bytes(final_string)
-    return compress 
+    return final_string 
 
 def IBW(I, L):
     n = len(L)
@@ -109,9 +109,15 @@ if __name__ == '__main__':
 
             error = False
             bigger = False
-            with open(name_extension, "r") as file_to_compress:
-                #file_in_ascii = str(binascii.b2a_qp(file_to_compress.read())).removeprefix("b'").removesuffix("'")
-                file_in_ascii = file_to_compress.read()
+            with open(name_extension, "rb") as file_to_compress: #name_extension
+            
+                file_in_ascii = ""                          #Cambie forma de lectura de los archivos para quue sea completamente binaria
+                while True:
+                    byte = file_to_compress.read(1)
+                    if not byte:
+                        break
+                    file_in_ascii += chr(int.from_bytes(byte, byteorder='big'))
+
                 if file_in_ascii[0] != "~":
                     BW_Block = 256
                     if len(file_in_ascii) < BW_Block:
@@ -145,46 +151,40 @@ if __name__ == '__main__':
                     print("No puedo comprimir este archivo D:")
                     error = True
             
-            bug = False
             if not error and not bigger:
-                aux = bytearray()
-                aux.append(I)
-                if I == 13:
-                    bug = True
+                header = bytearray()
+                header.append(I)
                 delimiter = int("01111110",2) #Agrego el separador ~
-                aux.append(delimiter)
-                header = bytes(aux)
-                if bug:
-                    print("Hubo un error al intentar guardar el archivo")
-                else:
-                    with open(name_zip, "wb") as zip_file:
-                        zip_file.write(header) 
-                        zip_file.write(compress)
+                header.append(delimiter)
+                with open(name_zip, "wb") as zip_file: #ACA
+                    zip_file.write(header) 
+                    zip_file.write(compress)
             elif not error and bigger:
-                aux = bytearray()
+                header = bytearray()
                 for i in range(len(index_stringBW)):
-                    aux.append(index_stringBW[i][0])
-                    if index_stringBW[i][0] == 13:
-                        bug = True
+                    header.append(index_stringBW[i][0])
                 delimiter = int("01111110",2) #Agrego el separador ~
-                aux.append(delimiter)
-                header = bytes(aux)
-                if bug:
-                    print("Hubo un error al intentar guardar el archivo")
-                else:
-                    with open(name_zip, "wb") as zip_file:
-                        zip_file.write(header) 
-                        zip_file.write(compress)
+                header.append(delimiter)
+                with open(name_zip, "wb") as zip_file:
+                    zip_file.write(header) 
+                    zip_file.write(compress)
 
-            if not error and not bug:
+            if not error:
                 print("Se almacenó el comprimido en la direccion del programa")    
         elif menu == "2":
             filename = filedialog.askopenfilename(initialdir = "/", title = "Select a File jmg")
             name_extension = os.path.basename(filename)
             name_unzip = name_extension[:name_extension.rfind("-")]  + "-Descomprimido.txt"
 
-            with open(name_extension, "r") as file_to_decompress:
-                file_compressed = file_to_decompress.read()
+            with open(name_extension, "rb") as file_to_decompress: #name_extension
+
+                file_compressed = ""
+                while True:
+                    byte = file_to_decompress.read(1)
+                    if not byte:
+                        break
+                    file_compressed += chr(int.from_bytes(byte, byteorder='big'))
+
                 amount_of_blocks = 0
                 indexBW_list = []
 
@@ -219,10 +219,11 @@ if __name__ == '__main__':
 
             final_string = bytearray(len(stringIBW))
             for i in range(len(stringIBW)):
-                final_string[i] = int(bin(ord(stringIBW[i])).removeprefix('0b'),2)
-            decompress = bytes(final_string)
-            with open(name_unzip, "wb") as file_decompressed:
-                file_decompressed.write(decompress)
+                aux = bin(ord(stringIBW[i])).removeprefix('0b')
+                final_string[i] = int("0"*(8-len(aux)) + aux,2)
+
+            with open(name_unzip, "wb") as file_decompressed: # aca
+                file_decompressed.write(final_string)
             
             print("Se almacenó el descomprimido en la direccion del original")
 
