@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
             error = False
             bigger = False
-            with open(name_extension, "rb") as file_to_compress: #name_extension
+            with open(filename, "rb") as file_to_compress: #name_extension
             
                 file_in_ascii = ""                          #Cambie forma de lectura de los archivos para quue sea completamente binaria
                 while True:
@@ -176,7 +176,7 @@ if __name__ == '__main__':
             name_extension = os.path.basename(filename)
             name_unzip = name_extension[:name_extension.rfind("-")]  + "-Descomprimido.txt"
 
-            with open(name_extension, "rb") as file_to_decompress: #name_extension
+            with open(filename, "rb") as file_to_decompress: #name_extension
 
                 file_compressed = ""
                 while True:
